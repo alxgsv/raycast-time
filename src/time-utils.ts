@@ -547,6 +547,7 @@ function buildMarkdownDetail(params: {
   const { heading, targetDate, now, localLocation, primaryLocation, secondaryLocation } = params;
   const primaryFmt = formatDateTimeInLocation(targetDate, primaryLocation);
   const localFmt = formatDateTimeInLocation(targetDate, localLocation);
+  const nowLocalFmt = formatDateTimeInLocation(now, localLocation);
   const utcLoc = resolveBestLocation("UTC")!;
   const utcFmt = formatDateTimeInLocation(targetDate, utcLoc);
 
@@ -585,6 +586,7 @@ function buildMarkdownDetail(params: {
   lines.push(
     "",
     "---",
+    `- **Your current time:** \`${nowLocalFmt.time24}\` (${nowLocalFmt.dateFull})`,
     `- **Difference to your timezone:** ${diff.detailed}`,
     `- **Relative to now:** ${relNow}`,
     `- **ISO 8601:** \`${primaryFmt.isoString}\``,
@@ -612,12 +614,13 @@ export function buildLocationCurrentTimeItem(
   const dayLabel = getDayLabel(now, location, now);
 
   const utcTag = formatUtcOffset(locOffset, true);
+  const isLocal = location.id === localLocation.id;
 
   return {
-    id: `loc-now:${location.id}`,
+    id: `loc-now:${location.id}:${section}`,
     section,
     title: `${fmt.time24}  —  ${location.label}`,
-    subtitle: `${fmt.dateFull}`,
+    subtitle: isLocal ? `${fmt.dateFull}` : `${fmt.dateFull} · Your time now: ${localFmt.time24}`,
     accessories: [
       {
         tag: {
@@ -663,6 +666,7 @@ export function buildConversionItem(params: {
 
   const srcFmt = formatDateTimeInLocation(targetDate, sourceLocation);
   const tgtFmt = formatDateTimeInLocation(targetDate, targetLocation);
+  const nowLocalFmt = formatDateTimeInLocation(now, localLocation);
   const srcOffset = getOffsetMinutes(targetDate, sourceLocation);
   const tgtOffset = getOffsetMinutes(targetDate, targetLocation);
 
@@ -681,7 +685,7 @@ export function buildConversionItem(params: {
     id: `conv:${sourceLocation.id}->${targetLocation.id}:${targetDate.getTime()}${idSuffix}`,
     section,
     title: `${tgtFmt.time24} (${tgtDay}) in ${targetLabelDisplay}`,
-    subtitle: `When ${sourceLocation.shortLabel} is ${srcFmt.time24} (${srcDay}) · ${tgtFmt.dateFull}`,
+    subtitle: `When ${sourceLocation.shortLabel} is ${srcFmt.time24} (${srcDay}) · ${tgtFmt.dateFull} · Your time now: ${nowLocalFmt.time24}`,
     accessories: [
       {
         tag: {
@@ -1190,6 +1194,7 @@ export function parseUntilQuery(
 
   const countdown = formatExactCountdown(targetDate, now);
   const localFmt = formatDateTimeInLocation(targetDate, localLocation);
+  const nowLocalFmt = formatDateTimeInLocation(now, localLocation);
   const dayLabel = getDayLabel(targetDate, localLocation, now);
 
   return [
@@ -1197,7 +1202,7 @@ export function parseUntilQuery(
       id: `until:${targetDate.getTime()}`,
       section: "Countdown",
       title: `${countdown}  →  Until ${targetTitle}`,
-      subtitle: `Target in your time: ${localFmt.time24} (${dayLabel}, ${localFmt.dateFull})`,
+      subtitle: `Target in your time: ${localFmt.time24} (${dayLabel}, ${localFmt.dateFull}) · Your time now: ${nowLocalFmt.time24}`,
       accessories: [
         {
           tag: {
@@ -1280,6 +1285,7 @@ function buildTimestampItems(
 ): SmartResultItem[] {
   const utcLoc = resolveBestLocation("UTC")!;
   const localFmt = formatDateTimeInLocation(date, localLocation);
+  const nowLocalFmt = formatDateTimeInLocation(now, localLocation);
   const utcFmt = formatDateTimeInLocation(date, utcLoc);
   const rel = formatRelativeFromNow(date, now);
   const localOffset = getOffsetMinutes(date, localLocation);
@@ -1299,7 +1305,7 @@ function buildTimestampItems(
       id: `ts-local:${date.getTime()}`,
       section: sectionTitle,
       title: `${localFmt.time24}  —  ${localFmt.dateFull} (Your Time)`,
-      subtitle: `${localLocation.ianaName} (${formatUtcOffset(localOffset, true)})`,
+      subtitle: `${localLocation.ianaName} (${formatUtcOffset(localOffset, true)}) · Your time now: ${nowLocalFmt.time24}`,
       accessories: [
         { tag: { value: rel, color: date.getTime() >= now.getTime() ? "green" : "blue" } },
         { text: localFmt.isoString },
@@ -1316,7 +1322,7 @@ function buildTimestampItems(
       id: `ts-utc:${date.getTime()}`,
       section: sectionTitle,
       title: `${utcFmt.time24}  —  ${utcFmt.dateFull} (UTC)`,
-      subtitle: `UTC+00:00`,
+      subtitle: `UTC+00:00 · Your time now: ${nowLocalFmt.time24}`,
       accessories: [{ tag: { value: "UTC", color: "purple" } }, { text: utcFmt.isoString }],
       copyValue: utcFmt.isoString,
       secondaryCopyValue: String(date.getTime()),
@@ -1421,7 +1427,7 @@ export function evaluateSmartQuery(options: {
   if (!trimmed || /^(?:now|current|today|сейчас)$/i.test(trimmed)) {
     const items: SmartResultItem[] = [];
 
-    items.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Current Time"));
+    items.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
 
     const seenIds = new Set<string>([localLocation.id]);
     for (const pinnedRaw of pinnedQueries) {
@@ -1437,11 +1443,22 @@ export function evaluateSmartQuery(options: {
   }
 
   const results: SmartResultItem[] = [];
+  const appendCurrentLocalTimeAndReturn = (list: SmartResultItem[]): SmartResultItem[] => {
+    if (list.length === 0) return list;
+    const alreadyHasCurrentLocal = list.some(
+      (it) => it.location?.id === localLocation.id && it.targetDate.getTime() === now.getTime()
+    );
+    if (!alreadyHasCurrentLocal) {
+      list.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
+    }
+    return list;
+  };
 
   // 2. Check Developer Timestamp / ISO-8601 (e.g. "1761901075", "2026-10-31T09:00:00Z")
   const tsItems = parseDeveloperTimestampQuery(trimmed, now, localLocation);
   if (tsItems.length > 0) {
     results.push(...tsItems);
+    results.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
     results.push(...buildDeveloperFormatItems(tsItems[0].targetDate, now, localLocation));
     return results;
   }
@@ -1449,7 +1466,7 @@ export function evaluateSmartQuery(options: {
   // 3. Check "until ..." countdown queries (e.g. "until 18:00", "until UTC 9am", "until Togliatti 7 november 11:00")
   const untilItems = parseUntilQuery(trimmed, now, localLocation);
   if (untilItems.length > 0) {
-    return untilItems;
+    return appendCurrentLocalTimeAndReturn(untilItems);
   }
 
   // 4. Check Relative Time Math (e.g. "in 45m", "+3h 20m", "2 days ago", "tomorrow 15:00", "next friday 15:00")
@@ -1457,6 +1474,7 @@ export function evaluateSmartQuery(options: {
   if (relMath) {
     const relItems = buildTimestampItems(relMath.date, `Relative Time (${relMath.label})`, now, localLocation);
     results.push(...relItems);
+    results.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
     results.push(...buildDeveloperFormatItems(relMath.date, now, localLocation));
     return results;
   }
@@ -1465,6 +1483,7 @@ export function evaluateSmartQuery(options: {
   const convItems = parseTimeConversionQuery(trimmed, now, localLocation);
   if (convItems.length > 0) {
     results.push(...convItems);
+    results.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
     results.push(...buildDeveloperFormatItems(convItems[0].targetDate, now, localLocation));
     return results;
   }
@@ -1510,6 +1529,7 @@ export function evaluateSmartQuery(options: {
         section: "UTC → Your Time",
       })
     );
+    results.push(buildLocationCurrentTimeItem(localLocation, now, localLocation, "Your Current Time"));
     results.push(...buildDeveloperFormatItems(localTargetDate, now, localLocation));
     return results;
   }
@@ -1529,7 +1549,7 @@ export function evaluateSmartQuery(options: {
       );
     }
 
-    return results;
+    return appendCurrentLocalTimeAndReturn(results);
   }
 
   const cleaned = cleanLocationQuery(trimmed);
@@ -1540,5 +1560,5 @@ export function evaluateSmartQuery(options: {
     }
   }
 
-  return results;
+  return appendCurrentLocalTimeAndReturn(results);
 }

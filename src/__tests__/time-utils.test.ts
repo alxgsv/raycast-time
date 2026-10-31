@@ -153,16 +153,18 @@ describe("Smart Time & Timezone Evaluator", () => {
       localTimeZone: LOCAL_TZ,
     });
 
-    expect(items.length).toBe(1);
+    expect(items.length).toBeGreaterThanOrEqual(2);
     expect(items[0].title).toContain("in 3h");
+    expect(items[0].subtitle).toContain("Your time now: 15:00");
 
     const dateCountdown = evaluateSmartQuery({
       query: "until Togliatti 7 november 11:00",
       now: REF_NOW,
       localTimeZone: LOCAL_TZ,
     });
-    expect(dateCountdown.length).toBe(1);
+    expect(dateCountdown.length).toBeGreaterThanOrEqual(2);
     expect(dateCountdown[0].title).toContain("in 6d 22h");
+    expect(dateCountdown[0].subtitle).toContain("Your time now: 15:00");
   });
 
   it("auto-detects Unix timestamps in seconds and milliseconds", () => {
