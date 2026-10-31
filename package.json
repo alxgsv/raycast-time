@@ -1,0 +1,66 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "smart-time",
+  "title": "Smart Time & Timezone",
+  "description": "Smartly query timezones, cities, time conversions, relative times, countdowns, and Unix timestamps.",
+  "icon": "command-icon.png",
+  "author": "alxgsv",
+  "categories": [
+    "Productivity",
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "time",
+      "title": "Smart Time",
+      "subtitle": "Timezones, Cities & Conversions",
+      "description": "Type any timezone (UTC), time conversion (UTC 9am, 9:00 in Tokyo), city (Time in Togliatti), relative math (in 3h, until 18:00), or Unix timestamp.",
+      "mode": "view",
+      "keywords": [
+        "time",
+        "timezone",
+        "utc",
+        "gmt",
+        "clock",
+        "convert",
+        "world",
+        "city",
+        "togliatti",
+        "epoch",
+        "unix"
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "defaultCities",
+      "type": "textfield",
+      "title": "Default Pinned Locations",
+      "description": "Comma-separated list of cities or timezones to show when the search bar is empty",
+      "default": "UTC, Togliatti, Moscow, London, New York",
+      "required": false
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.83.1",
+    "@raycast/utils": "^1.17.0",
+    "city-timezones": "^1.2.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.4"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "test": "vitest run"
+  }
+}
