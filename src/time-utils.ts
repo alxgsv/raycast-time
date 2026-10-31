@@ -626,21 +626,20 @@ export function buildLocationCurrentTimeItem(
   return {
     id: `loc-now:${location.id}:${section}`,
     section,
-    title: `${fmt.time24}  —  ${location.label}`,
-    subtitle: isLocal ? fmt.dateShort : `${fmt.dateShort} · you: ${localFmt.time24}`,
-    accessories: [
-      {
-        tag: {
-          value: diff.short,
-          color: diff.diffMinutes === 0 ? "green" : diff.diffMinutes > 0 ? "blue" : "orange",
-        },
-        tooltip: diff.detailed,
-      },
-      {
-        text: utcTag,
-        tooltip: `${location.ianaName} (${utcTag}) · Your local time: ${localFmt.time24} (${formatUtcOffset(localOffset, true)})`,
-      },
-    ],
+    title: `${fmt.time24}  ${isLocal ? `${location.shortLabel} (you)` : location.label}`,
+    subtitle: `${fmt.dateShort} · ${utcTag}`,
+    // Single accent: how far this place is from you (no tag for your own zone)
+    accessories: isLocal
+      ? []
+      : [
+          {
+            tag: {
+              value: diff.short,
+              color: diff.diffMinutes === 0 ? "secondary" : diff.diffMinutes > 0 ? "blue" : "orange",
+            },
+            tooltip: `${location.ianaName} (${utcTag}) is ${diff.detailed} · Your time: ${localFmt.time24}`,
+          },
+        ],
     copyValue: `${fmt.time24} (${location.shortLabel}, ${utcTag})`,
     secondaryCopyValue: fmt.isoString,
     secondaryCopyLabel: "Copy ISO 8601 String",
@@ -686,30 +685,34 @@ export function buildConversionItem(params: {
   const srcDay = getDayLabel(targetDate, sourceLocation, now);
 
   const isTargetLocal = targetLocation.id === localLocation.id;
+  const zoneDiff = isTargetLocal ? srcToLocalDiff : srcToTgtDiff;
   const targetLabelDisplay = isTargetLocal ? `Your Time (${localLocation.shortLabel})` : targetLocation.label;
-  const targetLabelShort = isTargetLocal ? "Your Time" : targetLocation.shortLabel;
 
   return {
     id: `conv:${sourceLocation.id}->${targetLocation.id}:${targetDate.getTime()}${idSuffix}`,
     section,
-    title: `${tgtFmt.time24} (${tgtDay}) · ${targetLabelShort}`,
-    subtitle: `When ${sourceLocation.shortLabel} is ${srcFmt.time24}${srcDay !== tgtDay ? ` (${srcDay})` : ""}`,
+    // Title is the answer; context goes to the muted subtitle
+    title: isTargetLocal ? tgtFmt.time24 : `${tgtFmt.time24} in ${targetLocation.shortLabel}`,
+    subtitle: `${tgtDay} · ${sourceLocation.shortLabel} ${srcFmt.time24}${srcDay !== tgtDay ? ` (${srcDay})` : ""}`,
     accessories: [
+      // Muted zone difference (hidden when zones match)
+      ...(zoneDiff.diffMinutes !== 0
+        ? [
+            {
+              text: zoneDiff.short,
+              tooltip: isTargetLocal
+                ? `${sourceLocation.shortLabel} (${formatUtcOffset(srcOffset, true)}) is ${srcToLocalDiff.detailed}`
+                : `${targetLocation.shortLabel} vs ${sourceLocation.shortLabel}: ${srcToTgtDiff.short}`,
+            },
+          ]
+        : []),
+      // Single accent, right-aligned: when it happens relative to now
       {
         tag: {
           value: relFromNow,
           color: targetDate.getTime() >= now.getTime() ? "green" : "secondary",
         },
         tooltip: `${tgtFmt.dateFull} · Your time now: ${nowLocalFmt.time24}`,
-      },
-      {
-        tag: {
-          value: isTargetLocal ? srcToLocalDiff.short : srcToTgtDiff.short,
-          color: "blue",
-        },
-        tooltip: isTargetLocal
-          ? `${sourceLocation.shortLabel} (${formatUtcOffset(srcOffset, true)}) is ${srcToLocalDiff.detailed}`
-          : `Difference between ${sourceLocation.shortLabel} and ${targetLocation.shortLabel}`,
       },
     ],
     copyValue: `${tgtFmt.time24} ${targetLocation.shortLabel} (${tgtFmt.dateShort})`,
@@ -726,7 +729,7 @@ export function buildConversionItem(params: {
       primaryLocation: targetLocation,
       secondaryLocation: sourceLocation,
     }),
-    icon: "switch",
+    icon: "clock",
   };
 }
 
@@ -1171,14 +1174,18 @@ export function parseUntilQuery(
     {
       id: `until:${targetDate.getTime()}`,
       section: "Countdown",
-      title: `${countdown}  →  Until ${targetTitle}`,
-      subtitle: `Your time: ${localFmt.time24} (${dayLabel})`,
-      accessories: [
-        {
-          text: `now ${nowLocalFmt.time24}`,
-          tooltip: `Target: ${localFmt.isoString}`,
-        },
-      ],
+      title: countdown,
+      subtitle: `until ${targetTitle}`,
+      // Show your local target time only when the target is in another zone (otherwise it repeats the subtitle)
+      accessories:
+        targetLoc.id === localLocation.id
+          ? []
+          : [
+              {
+                text: dayLabel === "Today" ? localFmt.time24 : `${dayLabel}, ${localFmt.time24}`,
+                tooltip: `Your time: ${localFmt.isoString} · Now: ${nowLocalFmt.time24}`,
+              },
+            ],
       copyValue: countdown,
       secondaryCopyValue: localFmt.isoString,
       secondaryCopyLabel: "Copy Target ISO 8601",
@@ -1269,11 +1276,11 @@ function buildTimestampItems(
     {
       id: `ts-local:${date.getTime()}`,
       section: sectionTitle,
-      title: `${localFmt.time24}  —  ${localFmt.dateFull} (Your Time)`,
-      subtitle: formatUtcOffset(localOffset, true),
+      title: `${localFmt.time24}  ${localFmt.dateFull}`,
+      subtitle: `Your time · ${formatUtcOffset(localOffset, true)}`,
       accessories: [
         {
-          tag: { value: rel, color: date.getTime() >= now.getTime() ? "green" : "blue" },
+          tag: { value: rel, color: date.getTime() >= now.getTime() ? "green" : "secondary" },
           tooltip: `${localLocation.ianaName} · ${localFmt.isoString} · Your time now: ${nowLocalFmt.time24}`,
         },
       ],
@@ -1288,9 +1295,9 @@ function buildTimestampItems(
     {
       id: `ts-utc:${date.getTime()}`,
       section: sectionTitle,
-      title: `${utcFmt.time24}  —  ${utcFmt.dateFull} (UTC)`,
-      subtitle: "",
-      accessories: [{ tag: { value: "UTC", color: "purple" }, tooltip: utcFmt.isoString }],
+      title: `${utcFmt.time24}  ${utcFmt.dateFull}`,
+      subtitle: "UTC",
+      accessories: [],
       copyValue: utcFmt.isoString,
       secondaryCopyValue: String(date.getTime()),
       secondaryCopyLabel: "Copy Unix Milliseconds",
@@ -1333,7 +1340,7 @@ export function buildDeveloperFormatItems(
       section,
       title: `${unixSec}`,
       subtitle: "Unix seconds",
-      accessories: [{ tag: { value: "Epoch", color: "purple" }, tooltip: `${unixMs} ms` }],
+      accessories: [{ text: `${unixMs} ms` }],
       copyValue: String(unixSec),
       secondaryCopyValue: String(unixMs),
       secondaryCopyLabel: "Copy Unix Milliseconds",
@@ -1345,8 +1352,8 @@ export function buildDeveloperFormatItems(
       id: `dev-iso-local:${unixSec}`,
       section,
       title: localFmt.isoString,
-      subtitle: "",
-      accessories: [{ tag: { value: "ISO 8601", color: "blue" }, tooltip: `${localLocation.ianaName} · UTC: ${utcFmt.isoString}` }],
+      subtitle: "ISO 8601",
+      accessories: [{ text: utcFmt.isoString }],
       copyValue: localFmt.isoString,
       secondaryCopyValue: utcFmt.isoString,
       secondaryCopyLabel: "Copy UTC ISO 8601",
@@ -1358,8 +1365,8 @@ export function buildDeveloperFormatItems(
       id: `dev-discord:${unixSec}`,
       section,
       title: discordFull,
-      subtitle: "",
-      accessories: [{ tag: { value: "Discord", color: "magenta" }, tooltip: `Relative: ${discordRel}` }],
+      subtitle: "Discord",
+      accessories: [{ text: discordRel }],
       copyValue: discordFull,
       secondaryCopyValue: discordRel,
       secondaryCopyLabel: "Copy Discord Relative Tag (<t:...:R>)",

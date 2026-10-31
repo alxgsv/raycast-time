@@ -237,7 +237,11 @@ export default function Command(props: LaunchProps) {
               return (
                 <List.Item
                   key={item.id}
-                  icon={mapIcon(item.icon)}
+                  icon={
+                    item.icon === "code" || item.icon === "speech-bubble"
+                      ? { source: mapIcon(item.icon), tintColor: Color.SecondaryText }
+                      : mapIcon(item.icon)
+                  }
                   title={item.title}
                   subtitle={showDetail ? undefined : item.subtitle}
                   accessories={

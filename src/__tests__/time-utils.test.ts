@@ -32,8 +32,8 @@ describe("Smart Time & Timezone Evaluator", () => {
       expect(items.length).toBeGreaterThan(0);
       const primary = items[0];
       expect(primary.title).toContain("15:00");
-      expect(primary.subtitle).toContain("When UTC is 09:00");
-      expect(primary.accessories[1]?.tag?.value).toBe("-6h");
+      expect(primary.subtitle).toContain("UTC 09:00");
+      expect(primary.accessories[0]?.text).toBe("-6h");
 
       // Ensure no AM/PM in output
       expect(primary.title).not.toMatch(/\b(AM|PM)\b/i);
@@ -61,9 +61,9 @@ describe("Smart Time & Timezone Evaluator", () => {
       expect(items.length).toBeGreaterThan(0);
       const primary = items[0];
       // Togliatti is UTC+4 (11:00 on Nov 7 -> 07:00 UTC), Omsk is UTC+6 (13:00 on Nov 7)
-      expect(primary.title).toContain("13:00 (Sat, Nov 7)");
-      expect(primary.subtitle).toContain("When Togliatti is 11:00");
-      expect(primary.accessories[1]?.tag?.value).toBe("-2h");
+      expect(primary.title).toBe("13:00");
+      expect(primary.subtitle).toBe("Sat, Nov 7 · Togliatti 11:00");
+      expect(primary.accessories[0]?.text).toBe("-2h");
     }
   });
 
@@ -105,7 +105,7 @@ describe("Smart Time & Timezone Evaluator", () => {
       expect(top.title).toContain("13:00");
       expect(top.title).toContain("Togliatti");
       expect(top.accessories[0]?.tag?.value).toBe("-2h");
-      expect(top.accessories[1]?.tooltip).toContain("Europe/Samara");
+      expect(top.accessories[0]?.tooltip).toContain("Europe/Samara");
     }
   });
 
@@ -118,7 +118,7 @@ describe("Smart Time & Timezone Evaluator", () => {
 
     expect(items.length).toBeGreaterThan(0);
     expect(items[0].title).toContain("20:30");
-    expect(items[0].accessories[0]?.tag?.value).toBe("in 5h 30m");
+    expect(items[0].accessories.at(-1)?.tag?.value).toBe("in 5h 30m");
   });
 
   it("converts third-party zones ('9am PST in CET') and also shows user local time", () => {
@@ -163,7 +163,8 @@ describe("Smart Time & Timezone Evaluator", () => {
     });
     expect(dateCountdown.length).toBeGreaterThanOrEqual(2);
     expect(dateCountdown[0].title).toContain("in 6d 22h");
-    expect(dateCountdown[0].subtitle).toContain("13:00");
+    expect(dateCountdown[0].subtitle).toContain("Togliatti 11:00");
+    expect(dateCountdown[0].accessories[0]?.text).toContain("13:00");
   });
 
   it("auto-detects Unix timestamps in seconds and milliseconds", () => {
@@ -195,8 +196,8 @@ describe("Smart Time & Timezone Evaluator", () => {
       expect(items.length).toBeGreaterThan(0);
       // 12:00 in Togliatti (UTC+4) → 14:00 in Omsk (UTC+6)
       expect(items[0].title).toContain("14:00");
-      expect(items[0].subtitle).toContain("When Togliatti is 12:00");
-      expect(items[0].accessories[1]?.tag?.value).toBe("-2h");
+      expect(items[0].subtitle).toContain("Togliatti 12:00");
+      expect(items[0].accessories[0]?.text).toBe("-2h");
     }
   });
 });
