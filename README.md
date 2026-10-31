@@ -32,13 +32,29 @@ A single-input smart time, timezone, city, countdown, and developer timestamp to
 
 ## Installation into Raycast
 
+### Prerequisites
+- [Raycast](https://www.raycast.com/) installed on macOS
+- [Node.js](https://nodejs.org/) (v18 or newer) & `npm`
+
+### Steps
+
 ```bash
+# 1. Clone the repository
 git clone https://github.com/alxgsv/raycast-time.git
 cd raycast-time
+
+# 2. Install dependencies
 npm install
-npm run dev   # then stop with Ctrl+C — the extension stays installed in Raycast
+
+# 3. Register the extension with Raycast
+npm run dev
 ```
 
-To update later: `git pull && npm install && npm run dev`.
+> **Note:** After running `npm run dev` once, the **Time** command is registered and remains available in Raycast even after stopping the development process with `Ctrl+C`.
 
-Running `npm run dev` registers and hot-reloads the **Time** command inside your local Raycast app.
+### Updating
+
+To fetch and apply the latest updates:
+```bash
+git pull && npm install && npm run build
+```
