@@ -200,7 +200,7 @@ export default function Command(props: LaunchProps) {
       searchText={searchText}
       onSearchTextChange={setSearchText}
       isShowingDetail={showDetail}
-      searchBarPlaceholder="Try: UTC, UTC 9am, Togliatti 7 november 11:00, Анапа, Tver, in 3h, until 18:00..."
+      searchBarPlaceholder="UTC 9am, Tokyo 18:00, in 3h, until 18:00…"
       throttle={false}
     >
       {sections.length === 0 ? (

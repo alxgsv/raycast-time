@@ -33,7 +33,7 @@ describe("Smart Time & Timezone Evaluator", () => {
       const primary = items[0];
       expect(primary.title).toContain("15:00");
       expect(primary.subtitle).toContain("When UTC is 09:00");
-      expect(primary.accessories[1]?.tag?.value).toBe("Zone diff: -6h");
+      expect(primary.accessories[1]?.tag?.value).toBe("-6h");
 
       // Ensure no AM/PM in output
       expect(primary.title).not.toMatch(/\b(AM|PM)\b/i);
@@ -62,9 +62,8 @@ describe("Smart Time & Timezone Evaluator", () => {
       const primary = items[0];
       // Togliatti is UTC+4 (11:00 on Nov 7 -> 07:00 UTC), Omsk is UTC+6 (13:00 on Nov 7)
       expect(primary.title).toContain("13:00 (Sat, Nov 7)");
-      expect(primary.subtitle).toContain("11:00 (Sat, Nov 7)");
-      expect(primary.subtitle).toContain("Sat, Nov 7, 2026");
-      expect(primary.accessories[1]?.tag?.value).toBe("Zone diff: -2h");
+      expect(primary.subtitle).toContain("When Togliatti is 11:00");
+      expect(primary.accessories[1]?.tag?.value).toBe("-2h");
     }
   });
 
@@ -106,7 +105,7 @@ describe("Smart Time & Timezone Evaluator", () => {
       expect(top.title).toContain("13:00");
       expect(top.title).toContain("Togliatti");
       expect(top.accessories[0]?.tag?.value).toBe("-2h");
-      expect(top.accessories[1]?.text).toContain("Europe/Samara");
+      expect(top.accessories[1]?.tooltip).toContain("Europe/Samara");
     }
   });
 
@@ -155,7 +154,7 @@ describe("Smart Time & Timezone Evaluator", () => {
 
     expect(items.length).toBeGreaterThanOrEqual(2);
     expect(items[0].title).toContain("in 3h");
-    expect(items[0].subtitle).toContain("Your time now: 15:00");
+    expect(items[0].subtitle).toContain("18:00");
 
     const dateCountdown = evaluateSmartQuery({
       query: "until Togliatti 7 november 11:00",
@@ -164,7 +163,7 @@ describe("Smart Time & Timezone Evaluator", () => {
     });
     expect(dateCountdown.length).toBeGreaterThanOrEqual(2);
     expect(dateCountdown[0].title).toContain("in 6d 22h");
-    expect(dateCountdown[0].subtitle).toContain("Your time now: 15:00");
+    expect(dateCountdown[0].subtitle).toContain("13:00");
   });
 
   it("auto-detects Unix timestamps in seconds and milliseconds", () => {
@@ -183,5 +182,21 @@ describe("Smart Time & Timezone Evaluator", () => {
     });
     expect(msItems.length).toBeGreaterThan(0);
     expect(msItems[0].section).toContain("Unix Timestamp (milliseconds");
+  });
+
+  it("treats a bare hour next to a city as HH:00 ('Togliatti 12', '12 Togliatti', 'Тольятти 12')", () => {
+    for (const q of ["Togliatti 12", "12 Togliatti", "Тольятти 12"]) {
+      const items = evaluateSmartQuery({
+        query: q,
+        now: REF_NOW,
+        localTimeZone: LOCAL_TZ,
+      });
+
+      expect(items.length).toBeGreaterThan(0);
+      // 12:00 in Togliatti (UTC+4) → 14:00 in Omsk (UTC+6)
+      expect(items[0].title).toContain("14:00");
+      expect(items[0].subtitle).toContain("When Togliatti is 12:00");
+      expect(items[0].accessories[1]?.tag?.value).toBe("-2h");
+    }
   });
 });

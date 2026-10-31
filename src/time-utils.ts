@@ -248,9 +248,10 @@ export function formatRelativeFromNow(targetDate: Date, now: Date): string {
   const parts: string[] = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0 && days < 7) parts.push(`${minutes}m`);
+  if (minutes > 0 && days === 0) parts.push(`${minutes}m`);
 
-  const joined = parts.join(" ") || "<1m";
+  // Keep it compact: at most two units (e.g. "in 6d 22h", "in 5h 30m")
+  const joined = parts.slice(0, 2).join(" ") || "<1m";
   return diffMs > 0 ? `in ${joined}` : `${joined} ago`;
 }
 
@@ -469,7 +470,11 @@ export function extractExplicitDate(
  * - "tomorrow 11:00", "yesterday 9am"
  * - "7 november 11:00", "nov 7 9am", "11:00 7 november", "7 ноября 11:00", "07.11 11:00"
  */
-export function parseTimeToken(raw: string, refDate: Date = new Date()): ParsedTimeOfDay | null {
+export function parseTimeToken(
+  raw: string,
+  refDate: Date = new Date(),
+  options: { allowBareHour?: boolean } = {}
+): ParsedTimeOfDay | null {
   let text = raw.trim().toLowerCase();
   if (!text) return null;
 
@@ -510,7 +515,9 @@ export function parseTimeToken(raw: string, refDate: Date = new Date()): ParsedT
   const hasColon = text.includes(":") || text.includes(".");
   const hasMeridiem = Boolean(match[4]);
 
-  if (!hasColon && !hasMeridiem) return null;
+  // A bare number ("12") is only treated as an hour when the caller allows it
+  // (e.g. right next to a city name: "Togliatti 12" → 12:00 in Togliatti).
+  if (!hasColon && !hasMeridiem && !(options.allowBareHour && /^\d{1,2}$/.test(text))) return null;
 
   let hour = parseInt(match[1], 10);
   const minute = match[2] ? parseInt(match[2], 10) : 0;
@@ -620,7 +627,7 @@ export function buildLocationCurrentTimeItem(
     id: `loc-now:${location.id}:${section}`,
     section,
     title: `${fmt.time24}  —  ${location.label}`,
-    subtitle: isLocal ? `${fmt.dateFull}` : `${fmt.dateFull} · Your time now: ${localFmt.time24}`,
+    subtitle: isLocal ? fmt.dateShort : `${fmt.dateShort} · you: ${localFmt.time24}`,
     accessories: [
       {
         tag: {
@@ -630,8 +637,8 @@ export function buildLocationCurrentTimeItem(
         tooltip: diff.detailed,
       },
       {
-        text: `${location.ianaName === location.shortLabel ? utcTag : `${location.ianaName} · ${utcTag}`}`,
-        tooltip: `Your local time: ${localFmt.time24} (${formatUtcOffset(localOffset, true)})`,
+        text: utcTag,
+        tooltip: `${location.ianaName} (${utcTag}) · Your local time: ${localFmt.time24} (${formatUtcOffset(localOffset, true)})`,
       },
     ],
     copyValue: `${fmt.time24} (${location.shortLabel}, ${utcTag})`,
@@ -680,23 +687,24 @@ export function buildConversionItem(params: {
 
   const isTargetLocal = targetLocation.id === localLocation.id;
   const targetLabelDisplay = isTargetLocal ? `Your Time (${localLocation.shortLabel})` : targetLocation.label;
+  const targetLabelShort = isTargetLocal ? "Your Time" : targetLocation.shortLabel;
 
   return {
     id: `conv:${sourceLocation.id}->${targetLocation.id}:${targetDate.getTime()}${idSuffix}`,
     section,
-    title: `${tgtFmt.time24} (${tgtDay}) in ${targetLabelDisplay}`,
-    subtitle: `When ${sourceLocation.shortLabel} is ${srcFmt.time24} (${srcDay}) · ${tgtFmt.dateFull} · Your time now: ${nowLocalFmt.time24}`,
+    title: `${tgtFmt.time24} (${tgtDay}) · ${targetLabelShort}`,
+    subtitle: `When ${sourceLocation.shortLabel} is ${srcFmt.time24}${srcDay !== tgtDay ? ` (${srcDay})` : ""}`,
     accessories: [
       {
         tag: {
           value: relFromNow,
           color: targetDate.getTime() >= now.getTime() ? "green" : "secondary",
         },
-        tooltip: `Relative to current time: ${relFromNow}`,
+        tooltip: `${tgtFmt.dateFull} · Your time now: ${nowLocalFmt.time24}`,
       },
       {
         tag: {
-          value: isTargetLocal ? `Zone diff: ${srcToLocalDiff.short}` : `${srcToTgtDiff.short}`,
+          value: isTargetLocal ? srcToLocalDiff.short : srcToTgtDiff.short,
           color: "blue",
         },
         tooltip: isTargetLocal
@@ -891,17 +899,8 @@ export function parseTimeConversionQuery(
           justTime.dayDelta,
           justTime.explicitDate
         );
-        const dateFromTarget = createDateInLocation(
-          now,
-          targetLoc,
-          justTime.hour,
-          justTime.minute,
-          justTime.second,
-          justTime.dayDelta,
-          justTime.explicitDate
-        );
 
-        const items: SmartResultItem[] = [
+        return [
           buildConversionItem({
             sourceLocation: localLocation,
             targetLocation: targetLoc,
@@ -912,22 +911,6 @@ export function parseTimeConversionQuery(
             idSuffix: ":local-to-target",
           }),
         ];
-
-        if (targetLoc.id !== localLocation.id) {
-          items.push(
-            buildConversionItem({
-              sourceLocation: targetLoc,
-              targetLocation: localLocation,
-              localLocation,
-              targetDate: dateFromTarget,
-              now,
-              section: `When ${targetLoc.shortLabel} is at this time → Your Time`,
-              idSuffix: ":target-to-local",
-            })
-          );
-        }
-
-        return items;
       }
 
       const srcAndTime = splitLocationAndTime(leftSide, now);
@@ -1019,37 +1002,24 @@ export function parseTimeConversionQuery(
       );
     }
 
-    if (sourceLoc.id !== localLocation.id) {
-      const inverseDate = createDateInLocation(
-        now,
-        localLocation,
-        parsedTime.hour,
-        parsedTime.minute,
-        parsedTime.second,
-        parsedTime.dayDelta,
-        parsedTime.explicitDate
-      );
-      items.push(
-        buildConversionItem({
-          sourceLocation: localLocation,
-          targetLocation: sourceLoc,
-          localLocation,
-          targetDate: inverseDate,
-          now,
-          section: `Reverse: Your Time → ${sourceLoc.shortLabel}`,
-          idSuffix: ":reverse",
-        })
-      );
-    }
-
     return items;
   }
 
   return [];
 }
 
+const BARE_HOUR_KEYWORDS = new Set(["in", "at", "on", "to", "until", "till", "for", "after", "before", "через", "в", "во", "до", "на"]);
+
 /**
- * Splits a string like "Togliatti 7 november 11:00", "UTC 9am", "7 november 11:00 Togliatti", "San Francisco 5:30 pm"
+ * Prevents queries like "in 3" or "at 9" from being read as "<location> <bare hour>".
+ */
+function isBareHourWithKeyword(locCandidate: string, timeCandidate: string): boolean {
+  return /^\d{1,2}$/.test(timeCandidate.trim()) && BARE_HOUR_KEYWORDS.has(locCandidate.trim().toLowerCase());
+}
+
+/**
+ * Splits a string like "Togliatti 7 november 11:00", "UTC 9am", "7 november 11:00 Togliatti", "San Francisco 5:30 pm",
+ * "Togliatti 12" (bare hour → 12:00)
  * into `{ location, time }`.
  */
 export function splitLocationAndTime(
@@ -1063,8 +1033,8 @@ export function splitLocationAndTime(
   for (let i = 1; i < tokens.length; i++) {
     const locCandidate = tokens.slice(0, i).join(" ");
     const timeCandidate = tokens.slice(i).join(" ");
-    const parsedTime = parseTimeToken(timeCandidate, refDate);
-    if (parsedTime) {
+    const parsedTime = parseTimeToken(timeCandidate, refDate, { allowBareHour: true });
+    if (parsedTime && !isBareHourWithKeyword(locCandidate, timeCandidate)) {
       const loc = resolveBestLocation(locCandidate);
       if (loc) {
         return { location: loc, time: parsedTime };
@@ -1076,8 +1046,8 @@ export function splitLocationAndTime(
   for (let i = tokens.length - 1; i >= 1; i--) {
     const timeCandidate = tokens.slice(0, i).join(" ");
     const locCandidate = tokens.slice(i).join(" ");
-    const parsedTime = parseTimeToken(timeCandidate, refDate);
-    if (parsedTime) {
+    const parsedTime = parseTimeToken(timeCandidate, refDate, { allowBareHour: true });
+    if (parsedTime && !isBareHourWithKeyword(locCandidate, timeCandidate)) {
       const loc = resolveBestLocation(locCandidate);
       if (loc) {
         return { location: loc, time: parsedTime };
@@ -1101,14 +1071,14 @@ export function extractCityCandidateForGeocoding(rawQuery: string, refDate: Date
     for (let i = 1; i < tokens.length; i++) {
       const locCandidate = tokens.slice(0, i).join(" ");
       const timeCandidate = tokens.slice(i).join(" ");
-      if (parseTimeToken(timeCandidate, refDate)) {
+      if (parseTimeToken(timeCandidate, refDate, { allowBareHour: true })) {
         return cleanLocationQuery(locCandidate);
       }
     }
     for (let i = tokens.length - 1; i >= 1; i--) {
       const timeCandidate = tokens.slice(0, i).join(" ");
       const locCandidate = tokens.slice(i).join(" ");
-      if (parseTimeToken(timeCandidate, refDate)) {
+      if (parseTimeToken(timeCandidate, refDate, { allowBareHour: true })) {
         return cleanLocationQuery(locCandidate);
       }
     }
@@ -1202,16 +1172,11 @@ export function parseUntilQuery(
       id: `until:${targetDate.getTime()}`,
       section: "Countdown",
       title: `${countdown}  →  Until ${targetTitle}`,
-      subtitle: `Target in your time: ${localFmt.time24} (${dayLabel}, ${localFmt.dateFull}) · Your time now: ${nowLocalFmt.time24}`,
+      subtitle: `Your time: ${localFmt.time24} (${dayLabel})`,
       accessories: [
         {
-          tag: {
-            value: countdown,
-            color: targetDate.getTime() >= now.getTime() ? "green" : "orange",
-          },
-        },
-        {
-          text: localFmt.isoString,
+          text: `now ${nowLocalFmt.time24}`,
+          tooltip: `Target: ${localFmt.isoString}`,
         },
       ],
       copyValue: countdown,
@@ -1305,10 +1270,12 @@ function buildTimestampItems(
       id: `ts-local:${date.getTime()}`,
       section: sectionTitle,
       title: `${localFmt.time24}  —  ${localFmt.dateFull} (Your Time)`,
-      subtitle: `${localLocation.ianaName} (${formatUtcOffset(localOffset, true)}) · Your time now: ${nowLocalFmt.time24}`,
+      subtitle: formatUtcOffset(localOffset, true),
       accessories: [
-        { tag: { value: rel, color: date.getTime() >= now.getTime() ? "green" : "blue" } },
-        { text: localFmt.isoString },
+        {
+          tag: { value: rel, color: date.getTime() >= now.getTime() ? "green" : "blue" },
+          tooltip: `${localLocation.ianaName} · ${localFmt.isoString} · Your time now: ${nowLocalFmt.time24}`,
+        },
       ],
       copyValue: localFmt.isoString,
       secondaryCopyValue: String(unixSec),
@@ -1322,8 +1289,8 @@ function buildTimestampItems(
       id: `ts-utc:${date.getTime()}`,
       section: sectionTitle,
       title: `${utcFmt.time24}  —  ${utcFmt.dateFull} (UTC)`,
-      subtitle: `UTC+00:00 · Your time now: ${nowLocalFmt.time24}`,
-      accessories: [{ tag: { value: "UTC", color: "purple" } }, { text: utcFmt.isoString }],
+      subtitle: "",
+      accessories: [{ tag: { value: "UTC", color: "purple" }, tooltip: utcFmt.isoString }],
       copyValue: utcFmt.isoString,
       secondaryCopyValue: String(date.getTime()),
       secondaryCopyLabel: "Copy Unix Milliseconds",
@@ -1365,8 +1332,8 @@ export function buildDeveloperFormatItems(
       id: `dev-unix-sec:${unixSec}`,
       section,
       title: `${unixSec}`,
-      subtitle: "Unix Timestamp (seconds)",
-      accessories: [{ text: `${unixMs} ms` }, { tag: { value: "Epoch", color: "purple" } }],
+      subtitle: "Unix seconds",
+      accessories: [{ tag: { value: "Epoch", color: "purple" }, tooltip: `${unixMs} ms` }],
       copyValue: String(unixSec),
       secondaryCopyValue: String(unixMs),
       secondaryCopyLabel: "Copy Unix Milliseconds",
@@ -1378,8 +1345,8 @@ export function buildDeveloperFormatItems(
       id: `dev-iso-local:${unixSec}`,
       section,
       title: localFmt.isoString,
-      subtitle: `ISO 8601 (Local · ${localLocation.ianaName})`,
-      accessories: [{ text: utcFmt.isoString }, { tag: { value: "ISO 8601", color: "blue" } }],
+      subtitle: "",
+      accessories: [{ tag: { value: "ISO 8601", color: "blue" }, tooltip: `${localLocation.ianaName} · UTC: ${utcFmt.isoString}` }],
       copyValue: localFmt.isoString,
       secondaryCopyValue: utcFmt.isoString,
       secondaryCopyLabel: "Copy UTC ISO 8601",
@@ -1390,9 +1357,9 @@ export function buildDeveloperFormatItems(
     {
       id: `dev-discord:${unixSec}`,
       section,
-      title: `${discordFull}  /  ${discordRel}`,
-      subtitle: "Discord Dynamic Timestamp (adapts to every reader's timezone)",
-      accessories: [{ tag: { value: "Discord", color: "magenta" } }],
+      title: discordFull,
+      subtitle: "",
+      accessories: [{ tag: { value: "Discord", color: "magenta" }, tooltip: `Relative: ${discordRel}` }],
       copyValue: discordFull,
       secondaryCopyValue: discordRel,
       secondaryCopyLabel: "Copy Discord Relative Tag (<t:...:R>)",

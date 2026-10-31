@@ -10,11 +10,11 @@ A single-input smart time, timezone, city, countdown, and developer timestamp to
 * `Time in Togliatti`, `Togliatti`, `Tolyatti`, `Тольятти`, `SFO`, `JFK`, `Tokyo`, `Europe/Samara`
   * Resolves 7,300+ global cities, airport codes, and Cyrillic/transliterated aliases.
 
-### 2. Bidirectional Shorthand Time Conversion
+### 2. Shorthand Time Conversion
 * `UTC 9am`, `UTC 9:00`, `9am UTC`, `Togliatti 18:30`, `UTC tomorrow 9am`
   * Shows what datetime it will be in **your local timezone** when the specified timezone/city is at that time, the timezone offset difference, and relative time from now (`in 5h 30m` / `2h ago`).
 * `9am in UTC`, `14:00 to Togliatti`
-  * Converts your local time into the target timezone/city (and shows the reverse conversion below).
+  * Converts your local time into the target timezone/city.
 * `9am PST in CET`, `UTC 9:00 in Tokyo`
   * Converts between any two timezones/cities while also displaying the equivalent in your local timezone.
 
