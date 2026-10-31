@@ -1,4 +1,4 @@
-# Smart Time & Timezone (Raycast Extension)
+# Time (Raycast Extension)
 
 A single-input smart time, timezone, city, countdown, and developer timestamp tool for Raycast.
 
@@ -37,4 +37,4 @@ npm install
 npm run dev
 ```
 
-Running `npm run dev` registers and hot-reloads the **Smart Time** command inside your local Raycast app.
+Running `npm run dev` registers and hot-reloads the **Time** command inside your local Raycast app.

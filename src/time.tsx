@@ -204,7 +204,7 @@ export default function Command(props: LaunchProps) {
       throttle={false}
     >
       {sections.length === 0 ? (
-        <List.Section title="Try One of These Smart Time Queries">
+        <List.Section title="Try One of These Queries">
           {EXAMPLE_QUERIES.map((ex) => (
             <List.Item
               key={ex.query}

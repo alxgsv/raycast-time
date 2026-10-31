@@ -1,8 +1,8 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "smart-time",
-  "title": "Smart Time & Timezone",
-  "description": "Smartly query timezones, cities, time conversions, relative times, countdowns, and Unix timestamps.",
+  "title": "Time",
+  "description": "Query timezones, cities, time conversions, relative times, countdowns, and Unix timestamps.",
   "icon": "command-icon.png",
   "author": "alxgsv",
   "categories": [
@@ -13,7 +13,7 @@
   "commands": [
     {
       "name": "time",
-      "title": "Smart Time",
+      "title": "Time",
       "subtitle": "Timezones, Cities & Conversions",
       "description": "Type any timezone (UTC), time conversion (UTC 9am, 9:00 in Tokyo), city (Time in Togliatti), relative math (in 3h, until 18:00), or Unix timestamp.",
       "mode": "view",
