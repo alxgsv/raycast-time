@@ -1529,31 +1529,6 @@ export function evaluateSmartQuery(options: {
       );
     }
 
-    const primaryLoc = matchedLocations[0];
-    if (primaryLoc.id !== localLocation.id) {
-      const nineAmDate = createDateInLocation(now, primaryLoc, 9, 0, 0, 0);
-      const sixPmDate = createDateInLocation(now, primaryLoc, 18, 0, 0, 0);
-      results.push(
-        buildConversionItem({
-          sourceLocation: primaryLoc,
-          targetLocation: localLocation,
-          localLocation,
-          targetDate: nineAmDate,
-          now,
-          section: `Quick Reference: ${primaryLoc.shortLabel} Working Hours in Your Time`,
-          idSuffix: ":ref-9am",
-        }),
-        buildConversionItem({
-          sourceLocation: primaryLoc,
-          targetLocation: localLocation,
-          localLocation,
-          targetDate: sixPmDate,
-          now,
-          section: `Quick Reference: ${primaryLoc.shortLabel} Working Hours in Your Time`,
-          idSuffix: ":ref-6pm",
-        })
-      );
-    }
     return results;
   }
 
