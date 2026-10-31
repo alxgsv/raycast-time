@@ -30,11 +30,15 @@ A single-input smart time, timezone, city, countdown, and developer timestamp to
 * `1761901075`, `1761901075000`, `2026-10-31T09:00:00Z`
   * Auto-detects Unix timestamps (seconds, milliseconds, microseconds) and ISO-8601 strings.
 
-## Development & Installation into Raycast
+## Installation into Raycast
 
 ```bash
+git clone https://github.com/alxgsv/raycast-time.git
+cd raycast-time
 npm install
-npm run dev
+npm run dev   # then stop with Ctrl+C — the extension stays installed in Raycast
 ```
+
+To update later: `git pull && npm install && npm run dev`.
 
 Running `npm run dev` registers and hot-reloads the **Time** command inside your local Raycast app.
